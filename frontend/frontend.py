@@ -27,11 +27,6 @@ if not api_key:
 # Get backend URL from environment or use localhost for development
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
-# Add a clickable link to the backend URL
-st.markdown(
-    f"🔗 **Backend URL**: [https://document-analyzer-backend-snkk.onrender.com](https://document-analyzer-backend-snkk.onrender.com)"
-)
-
 # In production deployment on Render, we don't need to start the backend
 # as it will be running as a separate service
 if os.getenv("RENDER") != "true":
