@@ -272,6 +272,10 @@ async def qa(text: str = Form(...), question: str = Form(...)):
 async def compare_docs(text1: str = Form(...), text2: str = Form(...)):
     return JSONResponse({"comparison": query_llama("Compare these two documents.", f"Doc1:\n{text1}\n\nDoc2:\n{text2}")})
 
+API_KEY = os.getenv("OPENROUTER_API_KEY")
+if not API_KEY:
+    print("🚨 API Key is missing! Please check your Render environment variables.")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
