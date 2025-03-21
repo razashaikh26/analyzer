@@ -6,54 +6,128 @@ import time
 import signal
 import os
 import sys
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Set page config as the first Streamlit command
-st.set_page_config(page_title="AI-Powered Document Analyzer", layout="wide")
+st.set_page_config(
+    page_title="AI-Powered Document Analyzer",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    page_icon="📄"
+)
 
-# Load environment variables from Streamlit secrets
-try:
-    api_key = st.secrets["api"]["key"]
-except KeyError:
-    api_key = ""  # Provide default value if missing
+# Custom CSS for improved UI
+st.markdown("""
+<style>
+    .main-header {
+        font-size: 2.5rem;
+        color: #1E88E5;
+        margin-bottom: 1rem;
+    }
+    .sub-header {
+        font-size: 1.5rem;
+        color: #0D47A1;
+    }
+    .card {
+        padding: 20px;
+        border-radius: 10px;
+        background-color: #f8f9fa;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+    }
+    .info-box {
+        background-color: #e3f2fd;
+        border-left: 5px solid #1E88E5;
+        padding: 10px 15px;
+        border-radius: 5px;
+    }
+    .warning-box {
+        background-color: #fff8e1;
+        border-left: 5px solid #FFC107;
+        padding: 10px 15px;
+        border-radius: 5px;
+    }
+    .success-box {
+        background-color: #e8f5e9;
+        border-left: 5px solid #4CAF50;
+        padding: 10px 15px;
+        border-radius: 5px;
+    }
+    .error-box {
+        background-color: #ffebee;
+        border-left: 5px solid #F44336;
+        padding: 10px 15px;
+        border-radius: 5px;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-try:
-    openrouter_api_key = st.secrets["api"]["openrouter_api_key"]
-except KeyError:
-    openrouter_api_key = ""  # Provide default value if missing
-    
-try:
-    backend_url = st.secrets["api"]["backend_url"]
-except KeyError:
-    backend_url = "http://localhost:8000"  # Default to localhost if not specified
+# Load environment variables directly
+api_key = os.getenv("API_KEY", "")
+openrouter_api_key = os.getenv("OPENROUTER_API_KEY", "")
+backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
 
-# Add debug mode toggle in sidebar
+# Sidebar with improved styling
 with st.sidebar:
-    st.title("Settings")
-    debug_mode = st.toggle("Debug Mode", value=False)
+    st.markdown("### 🛠️ Settings")
+    st.markdown("---")
+    
+    # Add a cleaner debug toggle
+    debug_mode = st.toggle("🐞 Debug Mode", value=False)
+    
+    st.markdown("### 📚 About")
+    st.markdown("""
+    <div class="info-box">
+    This tool analyzes documents using AI to extract insights, skills, and key information.
+    </div>
+    """, unsafe_allow_html=True)
+    
     if debug_mode:
-        st.write("⚠️ Debug mode enabled - error details will be shown")
-        # Show backend connection info
-        st.write(f"Backend URL: {backend_url}")
-        st.write(f"OpenRouter API Key: {openrouter_api_key[:5]}..." if openrouter_api_key else "Not set")
+        st.markdown("### 🔍 Debug Information")
+        st.markdown(f"""
+        <div class="warning-box">
+        ⚠️ Debug mode enabled - error details will be shown
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Display configuration details
+        st.markdown("#### Configuration")
+        st.markdown(f"- **Backend URL**: `{backend_url}`")
+        st.markdown(f"- **OpenRouter API Key**: `{openrouter_api_key[:5]}...`" if openrouter_api_key else "- **OpenRouter API Key**: Not set")
 
-# Print API key to check if it's being loaded
-print("API_KEY:", api_key and "Set" or "Missing")
-print("OPENROUTER_API_KEY:", openrouter_api_key and "Set" or "Missing")
+# Print API key to check if it's being loaded (for server logs only)
+print("API_KEY:", "Set" if api_key else "Missing")
+print("OPENROUTER_API_KEY:", "Set" if openrouter_api_key else "Missing")
 
 if not openrouter_api_key:
-    st.warning("⚠️ OpenRouter API key is missing. Some features may not work.")
+    st.markdown("""
+    <div class="warning-box">
+    ⚠️ OpenRouter API key is missing. Some features may not work.
+    </div>
+    """, unsafe_allow_html=True)
+    
     with st.expander("API Key Information"):
-        st.info("To use all features, you need to set up an OpenRouter API key.")
         st.markdown("""
+        ### Setting Up API Keys
+        
+        To use all features, you need to set up an OpenRouter API key:
+        
         1. Get a free API key from [OpenRouter](https://openrouter.ai/)
-        2. Add it to your `.streamlit/secrets.toml` file or as an environment variable
+        2. Create a `.env` file in your project root with:
+        ```
+        OPENROUTER_API_KEY=your_api_key_here
+        BACKEND_URL=http://localhost:8000
+        ```
+        3. Restart the application
         """)
 
-# In production deployment on Render or Streamlit sharing, we need special handling
-is_streamlit_sharing = os.getenv("STREAMLIT_SHARING") == "true"
+# In production deployment on Render, we need special handling
 is_render = os.getenv("RENDER") == "true"
 
-if not is_render and not is_streamlit_sharing:
+if not is_render:
     # Local development - start backend as subprocess
     # Global variable to store the backend process
     backend_process = None
@@ -122,52 +196,39 @@ if not is_render and not is_streamlit_sharing:
 
     # Ensure backend is running before accepting uploads
     if start_backend():
-        st.success("✅ Backend server running!")
+        st.markdown("""
+        <div class="success-box">
+        ✅ Backend server running!
+        </div>
+        """, unsafe_allow_html=True)
     else:
-        st.error("❌ Failed to start backend server. File processing will not work.")
-elif is_streamlit_sharing:
-    # On Streamlit sharing, start backend in a thread
-    st.info("📌 Running on Streamlit sharing. Backend will start in a separate thread.")
-    
-    # Import the backend directly to run it in-process
-    sys.path.append(os.path.join(os.path.dirname(__file__), "../backend"))
-    from . import backend
-    
-    # Define a function to run the backend in a thread
-    def run_backend():
-        import uvicorn
-        # Use a different port to avoid conflicts
-        uvicorn.run(backend.app, host="127.0.0.1", port=8000, log_level="error")
-    
-    # Start the backend in a separate thread
-    backend_thread = threading.Thread(target=run_backend, daemon=True)
-    backend_thread.start()
-    
-    # Set the backend URL to local address
-    backend_url = "http://127.0.0.1:8000"
-    
-    # Wait for the backend to start
-    time.sleep(2)
-    try:
-        response = requests.get(backend_url)
-        if response.status_code == 200:
-            st.success("✅ Backend API running in a separate thread")
-        else:
-            st.warning("⚠️ Backend may not be running correctly")
-    except Exception:
-        st.warning("⚠️ Backend may not be running correctly. Try refreshing the page.")
+        st.markdown("""
+        <div class="error-box">
+        ❌ Failed to start backend server. File processing will not work.
+        </div>
+        """, unsafe_allow_html=True)
 else:
     # On Render, just use the configured backend URL
     print(f"Using backend URL: {backend_url}")
 
-# Streamlit UI
-st.title("📄 Intelligent Document Processing System")
-st.write("Upload a document (PDF, DOCX, TXT) for automated analysis.")
+# Streamlit UI - Main content
+st.markdown('<h1 class="main-header">📄 Intelligent Document Processing System</h1>', unsafe_allow_html=True)
+st.markdown("""
+<div class="info-box">
+Upload a document (PDF, DOCX, TXT) for automated analysis using AI. The system will extract text and provide insights.
+</div>
+""", unsafe_allow_html=True)
 
 # ========================
 # UPLOAD SECTION
 # ========================
-st.info("💡 Upload a resume (PDF, DOCX, TXT) for analysis. The system will extract text and help you analyze it.")
+st.markdown('<h2 class="sub-header">📂 Document Upload</h2>', unsafe_allow_html=True)
+
+st.markdown("""
+<div class="card">
+<p>💡 Upload a resume (PDF, DOCX, TXT) for analysis. The system will extract text and help you analyze it.</p>
+</div>
+""", unsafe_allow_html=True)
 
 with st.expander("Tips for best results", expanded=False):
     st.markdown("""
@@ -181,11 +242,17 @@ with st.expander("Tips for best results", expanded=False):
     If you're having trouble with extraction, try converting your resume to DOCX format.
     """)
 
-uploaded_file = st.file_uploader("Upload your document", type=["pdf", "docx", "txt"])
+col1, col2 = st.columns([2, 1])
+with col1:
+    uploaded_file = st.file_uploader("Upload your document", type=["pdf", "docx", "txt"])
 text = ""
 
 if uploaded_file:
-    st.write(f"📄 File uploaded: **{uploaded_file.name}** ({uploaded_file.type})")
+    st.markdown(f"""
+    <div class="card">
+    📄 File uploaded: <strong>{uploaded_file.name}</strong> ({uploaded_file.type})
+    </div>
+    """, unsafe_allow_html=True)
     
     # Prepare the file for upload
     files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
@@ -199,36 +266,62 @@ if uploaded_file:
             
             # Check if extraction was successful but returned no substantial content
             if "No text extracted from PDF" in text:
-                st.warning("⚠️ The PDF appears to be scanned or contains no extractable text. OCR processing will be attempted.")
+                st.markdown("""
+                <div class="warning-box">
+                ⚠️ The PDF appears to be scanned or contains no extractable text. OCR processing will be attempted.
+                </div>
+                """, unsafe_allow_html=True)
                 st.info("If OCR fails, consider converting your resume to DOCX format for better results.")
             elif len(text) < 50:  # Very short text likely indicates a problem
-                st.warning(f"⚠️ Very little text was extracted ({len(text)} characters). The file may not contain proper text content.")
+                st.markdown(f"""
+                <div class="warning-box">
+                ⚠️ Very little text was extracted ({len(text)} characters). The file may not contain proper text content.
+                </div>
+                """, unsafe_allow_html=True)
             else:
                 # Display success and preview text
-                st.success(f"✅ Text extracted from {uploaded_file.name} ({len(text)} characters)")
+                st.markdown(f"""
+                <div class="success-box">
+                ✅ Text extracted from {uploaded_file.name} ({len(text)} characters)
+                </div>
+                """, unsafe_allow_html=True)
             
             # Show preview with expandable text area
             with st.expander("Preview extracted text", expanded=True):
                 st.text_area("Document content", text, height=300)
-                
-            # Show length as a metric
-            st.metric("Document Length", f"{len(text)} characters", f"{len(text.split())} words")
             
+            # Better metrics display
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Characters", f"{len(text)}")
+            with col2:
+                st.metric("Words", f"{len(text.split())}")
+            with col3:
+                st.metric("Lines", f"{len(text.splitlines())}")
+                
         except requests.exceptions.RequestException as e:
-            st.error(f"Failed to connect to the backend server: {e}")
+            st.markdown(f"""
+            <div class="error-box">
+            ❌ Failed to connect to the backend server: {e}
+            </div>
+            """, unsafe_allow_html=True)
             st.warning("Make sure the backend server is running. Check console for details.")
             
         except Exception as e:
-            st.error(f"Error processing file: {str(e)}")
+            st.markdown(f"""
+            <div class="error-box">
+            ❌ Error processing file: {str(e)}
+            </div>
+            """, unsafe_allow_html=True)
             
     # If we have text, show analysis options
     if text and len(text) > 10:  # Ensure we have meaningful text to analyze
-        st.subheader("🔍 Resume Analysis Options")
+        st.markdown('<h2 class="sub-header">🔍 Analysis Options</h2>', unsafe_allow_html=True)
         
-        analysis_tabs = st.tabs(["Summary", "Skills & Keywords", "Experience", "Custom Analysis"])
+        analysis_tabs = st.tabs(["✨ Summary", "🔧 Skills & Keywords", "💼 Experience", "🔍 Custom Analysis"])
         
         with analysis_tabs[0]:
-            if st.button("Generate Resume Summary"):
+            if st.button("Generate Resume Summary", use_container_width=True):
                 with st.spinner("Analyzing resume..."):
                     try:
                         prompt = "Provide a professional summary of this resume, highlighting key qualifications, experience, and skills."
@@ -238,10 +331,18 @@ if uploaded_file:
                         )
                         custom_analysis.raise_for_status()
                         
-                        st.subheader("📋 Resume Summary")
-                        st.write(custom_analysis.json()["answer"])
+                        st.markdown('<h3 class="sub-header">📋 Resume Summary</h3>', unsafe_allow_html=True)
+                        st.markdown(f"""
+                        <div class="card">
+                        {custom_analysis.json()["answer"]}
+                        </div>
+                        """, unsafe_allow_html=True)
                     except requests.exceptions.RequestException as e:
-                        st.error(f"❌ Error analyzing resume: {e}")
+                        st.markdown(f"""
+                        <div class="error-box">
+                        ❌ Error analyzing resume: {e}
+                        </div>
+                        """, unsafe_allow_html=True)
                         if debug_mode:
                             st.error("Detailed error info:")
                             try:
@@ -252,7 +353,7 @@ if uploaded_file:
                         st.info("This error typically occurs when the API key is missing or invalid. Check your OpenRouter API key configuration.")
         
         with analysis_tabs[1]:
-            if st.button("Extract Skills & Keywords"):
+            if st.button("Extract Skills & Keywords", use_container_width=True):
                 with st.spinner("Extracting skills..."):
                     try:
                         prompt = "Extract and categorize all professional skills mentioned in this resume. Group them into categories like Technical Skills, Soft Skills, Tools & Software, Languages, etc."
@@ -262,10 +363,18 @@ if uploaded_file:
                         )
                         skills_analysis.raise_for_status()
                         
-                        st.subheader("🔧 Skills Analysis")
-                        st.write(skills_analysis.json()["answer"])
+                        st.markdown('<h3 class="sub-header">🔧 Skills Analysis</h3>', unsafe_allow_html=True)
+                        st.markdown(f"""
+                        <div class="card">
+                        {skills_analysis.json()["answer"]}
+                        </div>
+                        """, unsafe_allow_html=True)
                     except requests.exceptions.RequestException as e:
-                        st.error(f"❌ Error extracting skills: {e}")
+                        st.markdown(f"""
+                        <div class="error-box">
+                        ❌ Error extracting skills: {e}
+                        </div>
+                        """, unsafe_allow_html=True)
                         if debug_mode:
                             st.error("Detailed error info:")
                             try:
@@ -276,7 +385,7 @@ if uploaded_file:
                         st.info("This error typically occurs when the API key is missing or invalid. Check your OpenRouter API key configuration.")
         
         with analysis_tabs[2]:
-            if st.button("Analyze Experience"):
+            if st.button("Analyze Experience", use_container_width=True):
                 with st.spinner("Analyzing experience..."):
                     try:
                         prompt = "Summarize the work experience in this resume, highlighting roles, responsibilities, and achievements. Include the duration at each position if available."
@@ -286,10 +395,18 @@ if uploaded_file:
                         )
                         exp_analysis.raise_for_status()
                         
-                        st.subheader("💼 Experience Analysis")
-                        st.write(exp_analysis.json()["answer"])
+                        st.markdown('<h3 class="sub-header">💼 Experience Analysis</h3>', unsafe_allow_html=True)
+                        st.markdown(f"""
+                        <div class="card">
+                        {exp_analysis.json()["answer"]}
+                        </div>
+                        """, unsafe_allow_html=True)
                     except requests.exceptions.RequestException as e:
-                        st.error(f"❌ Error analyzing experience: {e}")
+                        st.markdown(f"""
+                        <div class="error-box">
+                        ❌ Error analyzing experience: {e}
+                        </div>
+                        """, unsafe_allow_html=True)
                         if debug_mode:
                             st.error("Detailed error info:")
                             try:
@@ -301,7 +418,7 @@ if uploaded_file:
         
         with analysis_tabs[3]:
             custom_prompt = st.text_area("Enter a custom analysis prompt", "What are the candidate's strengths and areas for improvement based on this resume?")
-            if st.button("Run Custom Analysis"):
+            if st.button("Run Custom Analysis", use_container_width=True):
                 with st.spinner("Running custom analysis..."):
                     try:
                         custom_analysis = requests.post(
@@ -310,10 +427,18 @@ if uploaded_file:
                         )
                         custom_analysis.raise_for_status()
                         
-                        st.subheader("🔍 Custom Analysis Results")
-                        st.write(custom_analysis.json()["answer"])
+                        st.markdown('<h3 class="sub-header">🔍 Custom Analysis Results</h3>', unsafe_allow_html=True)
+                        st.markdown(f"""
+                        <div class="card">
+                        {custom_analysis.json()["answer"]}
+                        </div>
+                        """, unsafe_allow_html=True)
                     except requests.exceptions.RequestException as e:
-                        st.error(f"❌ Error in custom analysis: {e}")
+                        st.markdown(f"""
+                        <div class="error-box">
+                        ❌ Error in custom analysis: {e}
+                        </div>
+                        """, unsafe_allow_html=True)
                         if debug_mode:
                             st.error("Detailed error info:")
                             try:
@@ -324,25 +449,33 @@ if uploaded_file:
                         st.info("This error typically occurs when the API key is missing or invalid. Check your OpenRouter API key configuration.")
     
     elif text:  # We have some text but it's very little
-        st.warning("Not enough text was extracted to perform a meaningful analysis.")
+        st.markdown("""
+        <div class="warning-box">
+        ⚠️ Not enough text was extracted to perform a meaningful analysis.
+        </div>
+        """, unsafe_allow_html=True)
         st.info("Try uploading a different file format or check that your document contains extractable text.")
         
     # Additional analysis options can still be available
     with st.expander("Advanced Options", expanded=False):
-        st.subheader("Additional Analysis Tools")
+        st.markdown('<h3 class="sub-header">Additional Analysis Tools</h3>', unsafe_allow_html=True)
         
         # ========================
         # ENTITY RECOGNITION
         # ========================
-        if st.button("Extract Entities"):
+        if st.button("Extract Entities", use_container_width=True):
             with st.spinner("Extracting entities..."):
                 try:
                     entities_response = requests.post(f"{backend_url}/analyze/entities", data={"text": text, "api_key": openrouter_api_key})
                     entities_response.raise_for_status()
-                    st.subheader("🧩 Extracted Entities")
+                    st.markdown('<h3 class="sub-header">🧩 Extracted Entities</h3>', unsafe_allow_html=True)
                     st.json(entities_response.json()["entities"])
                 except requests.exceptions.RequestException as e:
-                    st.error(f"❌ Error extracting entities: {e}")
+                    st.markdown(f"""
+                    <div class="error-box">
+                    ❌ Error extracting entities: {e}
+                    </div>
+                    """, unsafe_allow_html=True)
                     if debug_mode:
                         st.error("Detailed error info:")
                         try:
@@ -355,15 +488,23 @@ if uploaded_file:
         # ========================
         # KEY ELEMENTS
         # ========================
-        if st.button("Extract Key Elements"):
+        if st.button("Extract Key Elements", use_container_width=True):
             with st.spinner("Extracting key elements..."):
                 try:
                     key_elements_response = requests.post(f"{backend_url}/analyze/key_elements", data={"text": text, "api_key": openrouter_api_key})
                     key_elements_response.raise_for_status()
-                    st.subheader("🔑 Key Elements")
-                    st.write(key_elements_response.json()["key_elements"])
+                    st.markdown('<h3 class="sub-header">🔑 Key Elements</h3>', unsafe_allow_html=True)
+                    st.markdown(f"""
+                    <div class="card">
+                    {key_elements_response.json()["key_elements"]}
+                    </div>
+                    """, unsafe_allow_html=True)
                 except requests.exceptions.RequestException as e:
-                    st.error(f"❌ Error extracting key elements: {e}")
+                    st.markdown(f"""
+                    <div class="error-box">
+                    ❌ Error extracting key elements: {e}
+                    </div>
+                    """, unsafe_allow_html=True)
                     if debug_mode:
                         st.error("Detailed error info:")
                         try:
@@ -377,15 +518,23 @@ if uploaded_file:
         # Q&A
         # ========================
         question = st.text_input("Ask a question about the document:")
-        if question and st.button("Get Answer"):
+        if question and st.button("Get Answer", use_container_width=True):
             with st.spinner("Generating answer..."):
                 try:
                     qa_response = requests.post(f"{backend_url}/analyze/qa", data={"text": text, "question": question, "api_key": openrouter_api_key})
                     qa_response.raise_for_status()
-                    st.subheader("❓ Q&A Response")
-                    st.write(qa_response.json()["answer"])
+                    st.markdown('<h3 class="sub-header">❓ Q&A Response</h3>', unsafe_allow_html=True)
+                    st.markdown(f"""
+                    <div class="card">
+                    {qa_response.json()["answer"]}
+                    </div>
+                    """, unsafe_allow_html=True)
                 except requests.exceptions.RequestException as e:
-                    st.error(f"❌ Error in Q&A processing: {e}")
+                    st.markdown(f"""
+                    <div class="error-box">
+                    ❌ Error in Q&A processing: {e}
+                    </div>
+                    """, unsafe_allow_html=True)
                     if debug_mode:
                         st.error("Detailed error info:")
                         try:
@@ -398,8 +547,12 @@ if uploaded_file:
     # ========================
     # DOCUMENT COMPARISON
     # ========================
-    st.subheader("📑 Compare Two Documents")
-    st.info("Upload a second document to compare with your resume (e.g., a job description or another resume)")
+    st.markdown('<h2 class="sub-header">📑 Compare Two Documents</h2>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="info-box">
+    Upload a second document to compare with your resume (e.g., a job description or another resume)
+    </div>
+    """, unsafe_allow_html=True)
 
     uploaded_file2 = st.file_uploader("Upload a second document", type=["pdf", "docx", "txt"], key="second_doc")
 
@@ -410,14 +563,18 @@ if uploaded_file:
             response2.raise_for_status()
             text2 = response2.json()["text"]
             
-            st.success(f"✅ Text extracted from second document: {uploaded_file2.name}")
+            st.markdown(f"""
+            <div class="success-box">
+            ✅ Text extracted from second document: {uploaded_file2.name}
+            </div>
+            """, unsafe_allow_html=True)
             
             compare_options = st.selectbox(
                 "Choose comparison type",
                 ["General Comparison", "Resume vs Job Description Match", "Skills Alignment", "Qualification Gap Analysis"]
             )
             
-            if st.button("Compare Documents"):
+            if st.button("Compare Documents", use_container_width=True):
                 with st.spinner("Comparing documents..."):
                     try:
                         # Customize prompt based on comparison type
@@ -437,16 +594,28 @@ if uploaded_file:
                         )
                         compare_response.raise_for_status()
                         
-                        st.subheader("📊 Comparison Results")
-                        st.write(compare_response.json()["answer"])
+                        st.markdown('<h3 class="sub-header">📊 Comparison Results</h3>', unsafe_allow_html=True)
+                        st.markdown(f"""
+                        <div class="card">
+                        {compare_response.json()["answer"]}
+                        </div>
+                        """, unsafe_allow_html=True)
                     except requests.exceptions.RequestException as e:
-                        st.error(f"❌ Error comparing documents: {e}")
+                        st.markdown(f"""
+                        <div class="error-box">
+                        ❌ Error comparing documents: {e}
+                        </div>
+                        """, unsafe_allow_html=True)
                         if debug_mode:
                             st.error("Debug info:")
                             st.write(f"API key status: {'Set' if openrouter_api_key else 'Missing'}")
                         st.info("API authentication error. Please ensure you have a valid OpenRouter API key.")
         except requests.exceptions.RequestException as e:
-            st.error(f"Failed to upload the second document: {e}")
+            st.markdown(f"""
+            <div class="error-box">
+            ❌ Failed to upload the second document: {e}
+            </div>
+            """, unsafe_allow_html=True)
             if debug_mode:
                 st.error("Backend connectivity issue:")
                 st.write(f"Backend URL: {backend_url}")
