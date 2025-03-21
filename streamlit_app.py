@@ -45,32 +45,56 @@ if not openrouter_api_key:
 
 # Import and start backend
 try:
-    from backend import backend
+    st.write("Attempting to import backend...")
+    # Add debug info
+    print("Python path:", sys.path)
+    print("Current directory:", os.getcwd())
+    print("Files in backend directory:", os.listdir(backend_dir))
+    
+    # Try to import directly with alternative approaches
+    try:
+        from backend import backend
+        st.write("✅ Backend module imported successfully")
+    except ImportError:
+        st.warning("Standard import failed, trying alternative import...")
+        # Try a direct import with the full path
+        sys.path.insert(0, os.path.abspath(backend_dir))
+        import backend
+        st.write("✅ Backend module imported with alternative method")
     
     # Define function to run backend in a thread
     def run_backend():
         import uvicorn
         # Use environment variable for API key
         os.environ["OPENROUTER_API_KEY"] = openrouter_api_key
-        uvicorn.run(backend.app, host="127.0.0.1", port=8000, log_level="error")
+        try:
+            uvicorn.run(backend.app, host="127.0.0.1", port=8000, log_level="error")
+        except Exception as e:
+            print(f"Error in backend thread: {e}")
     
     # Start backend in thread
+    st.write("Starting backend thread...")
     backend_thread = threading.Thread(target=run_backend, daemon=True)
     backend_thread.start()
     
     # Wait for backend to start
-    time.sleep(2)
+    st.write("Waiting for backend to initialize...")
+    time.sleep(3)  # Give it a bit more time
     try:
         response = requests.get(backend_url)
         if response.status_code == 200:
-            st.success("✅ Backend API running successfully")
+            st.success(f"✅ Backend API running successfully on {backend_url}")
         else:
-            st.warning("⚠️ Backend response code: " + str(response.status_code))
+            st.warning(f"⚠️ Backend response code: {response.status_code}")
+            st.warning(f"Response text: {response.text}")
     except Exception as e:
         st.warning(f"⚠️ Backend connection issue: {e}")
+        st.info("This usually means the backend is still starting. Try refreshing in a moment.")
 except Exception as e:
-    st.error(f"Failed to start backend: {e}")
-    st.info("Try refreshing the page")
+    st.error(f"Failed to start backend: {str(e)}")
+    import traceback
+    st.code(traceback.format_exc())
+    st.info("Try refreshing the page or check your repository structure")
     st.stop()
 
 # Main UI
