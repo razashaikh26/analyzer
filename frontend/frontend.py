@@ -20,47 +20,80 @@ st.set_page_config(
 )
 
 # Custom CSS for improved UI
+    # Custom CSS for improved UI
 st.markdown("""
 <style>
     .main-header {
         font-size: 2.5rem;
-        color: #1E88E5;
+        color: #FFFFFF; /* White text */
         margin-bottom: 1rem;
     }
     .sub-header {
         font-size: 1.5rem;
-        color: #0D47A1;
+        color: #CCCCCC; /* Light gray text */
     }
     .card {
         padding: 20px;
         border-radius: 10px;
-        background-color: #f8f9fa;
+        background-color: #2C3E50; /* Dark blue-gray background */
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         margin-bottom: 20px;
+        color: #FFFFFF; /* White text */
     }
     .info-box {
-        background-color: #e3f2fd;
-        border-left: 5px solid #1E88E5;
+        background-color: #34495E; /* Darker blue-gray background */
+        border-left: 5px solid #3498DB;
         padding: 10px 15px;
         border-radius: 5px;
+        color: #FFFFFF; /* White text */
     }
     .warning-box {
-        background-color: #fff8e1;
-        border-left: 5px solid #FFC107;
+        background-color: #F39C12; /* Orange background */
+        border-left: 5px solid #E67E22;
         padding: 10px 15px;
         border-radius: 5px;
+        color: #FFFFFF; /* White text */
     }
     .success-box {
-        background-color: #e8f5e9;
-        border-left: 5px solid #4CAF50;
+        background-color: #28B463; /* Green background */
+        border-left: 5px solid #1F8A4C;
         padding: 10px 15px;
         border-radius: 5px;
+        color: #FFFFFF; /* White text */
     }
     .error-box {
-        background-color: #ffebee;
-        border-left: 5px solid #F44336;
+        background-color: #E74C3C; /* Red background */
+        border-left: 5px solid #C0392B;
         padding: 10px 15px;
         border-radius: 5px;
+        color: #FFFFFF; /* White text */
+    }
+    .sidebar .sidebar-content {
+        background-color: #34495E; /* Dark blue-gray background */
+        color: #FFFFFF; /* White text */
+    }
+    .stButton>button {
+        background-color: #28B463; /* Green background */
+        color: white;
+        border-radius: 5px;
+        padding: 10px 20px;
+        border: none;
+        font-size: 16px;
+    }
+    .stButton>button:hover {
+        background-color: #1F8A4C; /* Darker green on hover */
+    }
+    .stFileUploader>div>div>div>div {
+        background-color: #34495E; /* Dark blue-gray background */
+        border-radius: 5px;
+        padding: 10px;
+        color: #FFFFFF; /* White text */
+    }
+    .stTextArea>div>div>textarea {
+        background-color: #34495E; /* Dark blue-gray background */
+        border-radius: 5px;
+        padding: 10px;
+        color: #FFFFFF; /* White text */
     }
 </style>
 """, unsafe_allow_html=True)
