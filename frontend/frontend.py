@@ -6,26 +6,48 @@ import time
 import signal
 import os
 import sys
-from dotenv import load_dotenv
 
 # Set page config as the first Streamlit command
 st.set_page_config(page_title="AI-Powered Document Analyzer", layout="wide")
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from Streamlit secrets
+try:
+    api_key = st.secrets["api"]["key"]
+except KeyError:
+    api_key = ""  # Provide default value if missing
+
+try:
+    openrouter_api_key = st.secrets["api"]["openrouter_api_key"]
+except KeyError:
+    openrouter_api_key = ""  # Provide default value if missing
+    
+try:
+    backend_url = st.secrets["api"]["backend_url"]
+except KeyError:
+    backend_url = "http://localhost:8000"  # Default to localhost if not specified
+
+# Add debug mode toggle in sidebar
+with st.sidebar:
+    st.title("Settings")
+    debug_mode = st.toggle("Debug Mode", value=False)
+    if debug_mode:
+        st.write("⚠️ Debug mode enabled - error details will be shown")
+        # Show backend connection info
+        st.write(f"Backend URL: {backend_url}")
+        st.write(f"OpenRouter API Key: {openrouter_api_key[:5]}..." if openrouter_api_key else "Not set")
 
 # Print API key to check if it's being loaded
-print("API_KEY:", os.getenv("API_KEY"))  
-print("OPENROUTER_API_KEY:", os.getenv("OPENROUTER_API_KEY"))
+print("API_KEY:", api_key and "Set" or "Missing")
+print("OPENROUTER_API_KEY:", openrouter_api_key and "Set" or "Missing")
 
-# Use API key in your request
-api_key = os.getenv("API_KEY")
-
-if not api_key:
-    raise ValueError("🚨 API keys missing! Check your .env file.")
-
-# Get backend URL from environment or use localhost for development
-BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+if not openrouter_api_key:
+    st.warning("⚠️ OpenRouter API key is missing. Some features may not work.")
+    with st.expander("API Key Information"):
+        st.info("To use all features, you need to set up an OpenRouter API key.")
+        st.markdown("""
+        1. Get a free API key from [OpenRouter](https://openrouter.ai/)
+        2. Add it to your `.streamlit/secrets.toml` file or as an environment variable
+        """)
 
 # In production deployment on Render, we don't need to start the backend
 # as it will be running as a separate service
@@ -48,11 +70,19 @@ if os.getenv("RENDER") != "true":
             
             # Start the backend process
             print("Starting backend server...")
+            
+            # Set up environment for the backend process
+            process_env = os.environ.copy()
+            if openrouter_api_key:
+                process_env["OPENROUTER_API_KEY"] = openrouter_api_key
+                print("API key set in environment for backend")
+            
             backend_process = subprocess.Popen(
-                ["python3", "-m", "uvicorn", "backend:app", "--host", "0.0.0.0", "--port", "8000"],
+                ["python3", "-m", "uvicorn", "backend.backend:app", "--host", "0.0.0.0", "--port", "8000"],
                 stdout=subprocess.PIPE, 
                 stderr=subprocess.PIPE,
-                text=True
+                text=True,
+                env=process_env
             )
             
             # Wait for the server to start
@@ -71,6 +101,13 @@ if os.getenv("RENDER") != "true":
                 if backend_process.poll() is not None:
                     stderr = backend_process.stderr.read()
                     print(f"Backend process exited with error: {stderr}")
+                    # Log more details about the failure
+                    if "No module named" in stderr:
+                        print("Error: Python module not found. Check if all required packages are installed.")
+                    elif "No API Key is missing" in stderr or "OPENROUTER_API_KEY" in stderr:
+                        print("Error: API key issue. Please check your OpenRouter API key configuration.")
+                    elif "Address already in use" in stderr:
+                        print("Error: Port 8000 is already in use by another application.")
                     return False
                     
             # If we get here, server didn't start successfully
@@ -87,7 +124,7 @@ if os.getenv("RENDER") != "true":
         st.error("❌ Failed to start backend server. File processing will not work.")
 else:
     # In production, show the configured backend URL
-    print(f"Using backend URL: {BACKEND_URL}")
+    print(f"Using backend URL: {backend_url}")
 
 # Streamlit UI
 st.title("📄 Intelligent Document Processing System")
@@ -121,7 +158,7 @@ if uploaded_file:
     
     with st.spinner("Extracting text from document..."):
         try:
-            response = requests.post(f"{BACKEND_URL}/upload", files=files)
+            response = requests.post(f"{backend_url}/upload", files=files)
             response.raise_for_status()  # Raise an error for bad status codes
             data = response.json()
             text = data["text"]
@@ -162,8 +199,8 @@ if uploaded_file:
                     try:
                         prompt = "Provide a professional summary of this resume, highlighting key qualifications, experience, and skills."
                         custom_analysis = requests.post(
-                            f"{BACKEND_URL}/analyze/qa", 
-                            data={"text": text, "question": prompt}
+                            f"{backend_url}/analyze/qa", 
+                            data={"text": text, "question": prompt, "api_key": openrouter_api_key}
                         )
                         custom_analysis.raise_for_status()
                         
@@ -171,6 +208,14 @@ if uploaded_file:
                         st.write(custom_analysis.json()["answer"])
                     except requests.exceptions.RequestException as e:
                         st.error(f"❌ Error analyzing resume: {e}")
+                        if debug_mode:
+                            st.error("Detailed error info:")
+                            try:
+                                st.json(e.response.json())
+                            except:
+                                st.write(f"Status code: {e.response.status_code}")
+                                st.write(f"Response text: {e.response.text}")
+                        st.info("This error typically occurs when the API key is missing or invalid. Check your OpenRouter API key configuration.")
         
         with analysis_tabs[1]:
             if st.button("Extract Skills & Keywords"):
@@ -178,8 +223,8 @@ if uploaded_file:
                     try:
                         prompt = "Extract and categorize all professional skills mentioned in this resume. Group them into categories like Technical Skills, Soft Skills, Tools & Software, Languages, etc."
                         skills_analysis = requests.post(
-                            f"{BACKEND_URL}/analyze/qa", 
-                            data={"text": text, "question": prompt}
+                            f"{backend_url}/analyze/qa", 
+                            data={"text": text, "question": prompt, "api_key": openrouter_api_key}
                         )
                         skills_analysis.raise_for_status()
                         
@@ -187,6 +232,14 @@ if uploaded_file:
                         st.write(skills_analysis.json()["answer"])
                     except requests.exceptions.RequestException as e:
                         st.error(f"❌ Error extracting skills: {e}")
+                        if debug_mode:
+                            st.error("Detailed error info:")
+                            try:
+                                st.json(e.response.json())
+                            except:
+                                st.write(f"Status code: {e.response.status_code}")
+                                st.write(f"Response text: {e.response.text}")
+                        st.info("This error typically occurs when the API key is missing or invalid. Check your OpenRouter API key configuration.")
         
         with analysis_tabs[2]:
             if st.button("Analyze Experience"):
@@ -194,8 +247,8 @@ if uploaded_file:
                     try:
                         prompt = "Summarize the work experience in this resume, highlighting roles, responsibilities, and achievements. Include the duration at each position if available."
                         exp_analysis = requests.post(
-                            f"{BACKEND_URL}/analyze/qa", 
-                            data={"text": text, "question": prompt}
+                            f"{backend_url}/analyze/qa", 
+                            data={"text": text, "question": prompt, "api_key": openrouter_api_key}
                         )
                         exp_analysis.raise_for_status()
                         
@@ -203,6 +256,14 @@ if uploaded_file:
                         st.write(exp_analysis.json()["answer"])
                     except requests.exceptions.RequestException as e:
                         st.error(f"❌ Error analyzing experience: {e}")
+                        if debug_mode:
+                            st.error("Detailed error info:")
+                            try:
+                                st.json(e.response.json())
+                            except:
+                                st.write(f"Status code: {e.response.status_code}")
+                                st.write(f"Response text: {e.response.text}")
+                        st.info("This error typically occurs when the API key is missing or invalid. Check your OpenRouter API key configuration.")
         
         with analysis_tabs[3]:
             custom_prompt = st.text_area("Enter a custom analysis prompt", "What are the candidate's strengths and areas for improvement based on this resume?")
@@ -210,8 +271,8 @@ if uploaded_file:
                 with st.spinner("Running custom analysis..."):
                     try:
                         custom_analysis = requests.post(
-                            f"{BACKEND_URL}/analyze/qa", 
-                            data={"text": text, "question": custom_prompt}
+                            f"{backend_url}/analyze/qa", 
+                            data={"text": text, "question": custom_prompt, "api_key": openrouter_api_key}
                         )
                         custom_analysis.raise_for_status()
                         
@@ -219,6 +280,14 @@ if uploaded_file:
                         st.write(custom_analysis.json()["answer"])
                     except requests.exceptions.RequestException as e:
                         st.error(f"❌ Error in custom analysis: {e}")
+                        if debug_mode:
+                            st.error("Detailed error info:")
+                            try:
+                                st.json(e.response.json())
+                            except:
+                                st.write(f"Status code: {e.response.status_code}")
+                                st.write(f"Response text: {e.response.text}")
+                        st.info("This error typically occurs when the API key is missing or invalid. Check your OpenRouter API key configuration.")
     
     elif text:  # We have some text but it's very little
         st.warning("Not enough text was extracted to perform a meaningful analysis.")
@@ -234,12 +303,20 @@ if uploaded_file:
         if st.button("Extract Entities"):
             with st.spinner("Extracting entities..."):
                 try:
-                    entities_response = requests.post(f"{BACKEND_URL}/analyze/entities", data={"text": text})
+                    entities_response = requests.post(f"{backend_url}/analyze/entities", data={"text": text, "api_key": openrouter_api_key})
                     entities_response.raise_for_status()
                     st.subheader("🧩 Extracted Entities")
                     st.json(entities_response.json()["entities"])
                 except requests.exceptions.RequestException as e:
                     st.error(f"❌ Error extracting entities: {e}")
+                    if debug_mode:
+                        st.error("Detailed error info:")
+                        try:
+                            st.json(e.response.json())
+                        except:
+                            st.write(f"Status code: {e.response.status_code}")
+                            st.write(f"Response text: {e.response.text}")
+                    st.info("This error typically occurs when the API key is missing or invalid. Check your OpenRouter API key configuration.")
 
         # ========================
         # KEY ELEMENTS
@@ -247,12 +324,20 @@ if uploaded_file:
         if st.button("Extract Key Elements"):
             with st.spinner("Extracting key elements..."):
                 try:
-                    key_elements_response = requests.post(f"{BACKEND_URL}/analyze/key_elements", data={"text": text})
+                    key_elements_response = requests.post(f"{backend_url}/analyze/key_elements", data={"text": text, "api_key": openrouter_api_key})
                     key_elements_response.raise_for_status()
                     st.subheader("🔑 Key Elements")
                     st.write(key_elements_response.json()["key_elements"])
                 except requests.exceptions.RequestException as e:
                     st.error(f"❌ Error extracting key elements: {e}")
+                    if debug_mode:
+                        st.error("Detailed error info:")
+                        try:
+                            st.json(e.response.json())
+                        except:
+                            st.write(f"Status code: {e.response.status_code}")
+                            st.write(f"Response text: {e.response.text}")
+                    st.info("This error typically occurs when the API key is missing or invalid. Check your OpenRouter API key configuration.")
 
         # ========================
         # Q&A
@@ -261,12 +346,20 @@ if uploaded_file:
         if question and st.button("Get Answer"):
             with st.spinner("Generating answer..."):
                 try:
-                    qa_response = requests.post(f"{BACKEND_URL}/analyze/qa", data={"text": text, "question": question})
+                    qa_response = requests.post(f"{backend_url}/analyze/qa", data={"text": text, "question": question, "api_key": openrouter_api_key})
                     qa_response.raise_for_status()
                     st.subheader("❓ Q&A Response")
                     st.write(qa_response.json()["answer"])
                 except requests.exceptions.RequestException as e:
                     st.error(f"❌ Error in Q&A processing: {e}")
+                    if debug_mode:
+                        st.error("Detailed error info:")
+                        try:
+                            st.json(e.response.json())
+                        except:
+                            st.write(f"Status code: {e.response.status_code}")
+                            st.write(f"Response text: {e.response.text}")
+                    st.info("This error typically occurs when the API key is missing or invalid. Check your OpenRouter API key configuration.")
 
     # ========================
     # DOCUMENT COMPARISON
@@ -279,7 +372,7 @@ if uploaded_file:
     if uploaded_file2:
         files2 = {"file": (uploaded_file2.name, uploaded_file2.getvalue(), uploaded_file2.type)}
         try:
-            response2 = requests.post(f"{BACKEND_URL}/upload", files=files2)
+            response2 = requests.post(f"{backend_url}/upload", files=files2)
             response2.raise_for_status()
             text2 = response2.json()["text"]
             
@@ -305,8 +398,8 @@ if uploaded_file:
                         
                         # Use custom Q&A endpoint for more flexible prompting
                         compare_response = requests.post(
-                            f"{BACKEND_URL}/analyze/qa", 
-                            data={"text": f"Doc1:\n{text}\n\nDoc2:\n{text2}", "question": prompt}
+                            f"{backend_url}/analyze/qa", 
+                            data={"text": f"Doc1:\n{text}\n\nDoc2:\n{text2}", "question": prompt, "api_key": openrouter_api_key}
                         )
                         compare_response.raise_for_status()
                         
@@ -314,5 +407,13 @@ if uploaded_file:
                         st.write(compare_response.json()["answer"])
                     except requests.exceptions.RequestException as e:
                         st.error(f"❌ Error comparing documents: {e}")
+                        if debug_mode:
+                            st.error("Debug info:")
+                            st.write(f"API key status: {'Set' if openrouter_api_key else 'Missing'}")
+                        st.info("API authentication error. Please ensure you have a valid OpenRouter API key.")
         except requests.exceptions.RequestException as e:
             st.error(f"Failed to upload the second document: {e}")
+            if debug_mode:
+                st.error("Backend connectivity issue:")
+                st.write(f"Backend URL: {backend_url}")
+            st.info("Make sure the backend server is running and accessible.")

@@ -8,21 +8,15 @@ import os
 import json
 import asyncio
 import concurrent.futures
-from dotenv import load_dotenv
-
-# Load API keys
-load_dotenv()
 
 # OpenRouter API Configuration
+# Try to load API keys from environment variables, with multiple fallback options
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-if not OPENROUTER_API_KEY:
-    raise ValueError("🚨 API Key is missing! Please check your .env file.")
 
-MODEL_NAME = "meta-llama/llama-3.3-70b-instruct:free"
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=OPENROUTER_API_KEY,
-)
+# If not found in env vars, check if frontend passed it through as query param
+if not OPENROUTER_API_KEY:
+    print("Warning: OPENROUTER_API_KEY not found in environment variables.")
+    print("Will attempt to use API key from frontend request at runtime.")
 
 # Define your FastAPI app
 app = FastAPI()
@@ -77,12 +71,29 @@ async def upload_file(file: UploadFile = File(...)):
 # ==========================
 # AI-POWERED ANALYSIS
 # ==========================
-def query_llama(prompt: str, text: str) -> str:
+def get_openai_client(api_key=None):
+    """Create and return an OpenAI client with the specified API key."""
+    # Use parameter API key if provided, otherwise use environment variable
+    key_to_use = api_key or OPENROUTER_API_KEY
+    
+    if not key_to_use:
+        raise ValueError("No API key available for OpenRouter")
+        
+    return OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=key_to_use,
+    )
+
+def query_llama(prompt: str, text: str, api_key=None) -> str:
     """Query Llama model with document text while handling large inputs."""
     if not text.strip():
         return "Error: No content to process."
 
     try:
+        # Get a client with the appropriate API key
+        client = get_openai_client(api_key)
+        
+        MODEL_NAME = "meta-llama/llama-3.3-70b-instruct:free"
         completion = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
@@ -95,11 +106,11 @@ def query_llama(prompt: str, text: str) -> str:
         return f"Error: {str(e)}"
 
 @app.post("/analyze/summarize")
-async def summarize(text: str = Form(...)):
-    return JSONResponse({"summary": query_llama("Summarize the document.", text)})
+async def summarize(text: str = Form(...), api_key: str = Form(None)):
+    return JSONResponse({"summary": query_llama("Summarize the document.", text, api_key)})
 
 @app.post("/analyze/entities")
-async def recognize_entities(text: str = Form(...)):
+async def recognize_entities(text: str = Form(...), api_key: str = Form(None)):
     """Extract named entities (PERSON, ORG, GEO, DATE) and return JSON format."""
     
     prompt = (
@@ -109,7 +120,7 @@ async def recognize_entities(text: str = Form(...)):
         '[{"entity": "Elon Musk", "type": "PERSON"}, {"entity": "OpenAI", "type": "ORG"}].'
     )
 
-    response = query_llama(prompt, text)
+    response = query_llama(prompt, text, api_key)
 
     try:
         json_start = response.find("[")
@@ -121,16 +132,16 @@ async def recognize_entities(text: str = Form(...)):
         return JSONResponse({"error": "Failed to parse entity recognition response"}, status_code=500)
 
 @app.post("/analyze/key_elements")
-async def key_elements(text: str = Form(...)):
-    return JSONResponse({"key_elements": query_llama("Extract key themes, topics, and concepts.", text)})
+async def key_elements(text: str = Form(...), api_key: str = Form(None)):
+    return JSONResponse({"key_elements": query_llama("Extract key themes, topics, and concepts.", text, api_key)})
 
 @app.post("/analyze/qa")
-async def qa(text: str = Form(...), question: str = Form(...)):
-    return JSONResponse({"answer": query_llama(f"Answer this: {question}", text)})
+async def qa(text: str = Form(...), question: str = Form(...), api_key: str = Form(None)):
+    return JSONResponse({"answer": query_llama(f"Answer this: {question}", text, api_key)})
 
 @app.post("/analyze/compare")
-async def compare_docs(text1: str = Form(...), text2: str = Form(...)):
-    return JSONResponse({"comparison": query_llama("Compare these two documents.", f"Doc1:\n{text1}\n\nDoc2:\n{text2}")})
+async def compare_docs(text1: str = Form(...), text2: str = Form(...), api_key: str = Form(None)):
+    return JSONResponse({"comparison": query_llama("Compare these two documents.", f"Doc1:\n{text1}\n\nDoc2:\n{text2}", api_key)})
 
 if __name__ == "__main__":
     import uvicorn
