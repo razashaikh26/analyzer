@@ -49,9 +49,12 @@ if not openrouter_api_key:
         2. Add it to your `.streamlit/secrets.toml` file or as an environment variable
         """)
 
-# In production deployment on Render, we don't need to start the backend
-# as it will be running as a separate service
-if os.getenv("RENDER") != "true":
+# In production deployment on Render or Streamlit sharing, we need special handling
+is_streamlit_sharing = os.getenv("STREAMLIT_SHARING") == "true"
+is_render = os.getenv("RENDER") == "true"
+
+if not is_render and not is_streamlit_sharing:
+    # Local development - start backend as subprocess
     # Global variable to store the backend process
     backend_process = None
 
@@ -122,8 +125,39 @@ if os.getenv("RENDER") != "true":
         st.success("✅ Backend server running!")
     else:
         st.error("❌ Failed to start backend server. File processing will not work.")
+elif is_streamlit_sharing:
+    # On Streamlit sharing, start backend in a thread
+    st.info("📌 Running on Streamlit sharing. Backend will start in a separate thread.")
+    
+    # Import the backend directly to run it in-process
+    sys.path.append(os.path.join(os.path.dirname(__file__), "../backend"))
+    from backend import backend
+    
+    # Define a function to run the backend in a thread
+    def run_backend():
+        import uvicorn
+        # Use a different port to avoid conflicts
+        uvicorn.run(backend.app, host="127.0.0.1", port=8000, log_level="error")
+    
+    # Start the backend in a separate thread
+    backend_thread = threading.Thread(target=run_backend, daemon=True)
+    backend_thread.start()
+    
+    # Set the backend URL to local address
+    backend_url = "http://127.0.0.1:8000"
+    
+    # Wait for the backend to start
+    time.sleep(2)
+    try:
+        response = requests.get(backend_url)
+        if response.status_code == 200:
+            st.success("✅ Backend API running in a separate thread")
+        else:
+            st.warning("⚠️ Backend may not be running correctly")
+    except Exception:
+        st.warning("⚠️ Backend may not be running correctly. Try refreshing the page.")
 else:
-    # In production, show the configured backend URL
+    # On Render, just use the configured backend URL
     print(f"Using backend URL: {backend_url}")
 
 # Streamlit UI
