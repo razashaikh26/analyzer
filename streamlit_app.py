@@ -53,7 +53,7 @@ try:
     
     # Try to import directly with alternative approaches
     try:
-        from backend import backend
+        from . import backend
         st.write("✅ Backend module imported successfully")
     except ImportError:
         st.warning("Standard import failed, trying alternative import...")

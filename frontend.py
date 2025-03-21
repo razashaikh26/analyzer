@@ -131,7 +131,7 @@ elif is_streamlit_sharing:
     
     # Import the backend directly to run it in-process
     sys.path.append(os.path.join(os.path.dirname(__file__), "../backend"))
-    from backend import backend
+    from . import backend
     
     # Define a function to run the backend in a thread
     def run_backend():
